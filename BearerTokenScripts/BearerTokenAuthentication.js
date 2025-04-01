@@ -1,8 +1,8 @@
 /*
  * Authentication script for ZAP to retrieve Bearer and Refresh tokens
  * Author: Ice Fox
- * Date: 2025-03-17
- * Version: 1.2
+ * Date: 2025-04-01
+ * Version: 1.3
  */
 
 const ScriptVars = Java.type("org.zaproxy.zap.extension.script.ScriptVars");
@@ -17,9 +17,12 @@ function authenticate(helper, paramsValues, credentials) {
 	print("🚀 [Authentication] Script starting...\n");
 
 	const loginUrl = paramsValues.get("loginUrl");
-	const tokenAccessor = paramsValues.get("tokenAccessor") || "access_token";
+	const tokenAccessor = paramsValues.get("tokenAccessor") ?? "access_token";
 	const refreshTokenAccessor =
-		paramsValues.get("refreshTokenAccessor") || "refresh_token";
+		paramsValues.get("refreshTokenAccessor") ?? "refresh_token";
+
+	const usernameAccessor = paramsValues.get("usernameAccessor") ?? "username";
+	const passwordAccessor = paramsValues.get("passwordAccessor") ?? "password";
 
 	const username = credentials.getParam("username");
 	const password = credentials.getParam("password");
@@ -35,13 +38,18 @@ function authenticate(helper, paramsValues, credentials) {
 	print(`🔑 Authenticating user: ${username}\n`);
 	print(`🌐 Login endpoint: ${loginUrl}\n`);
 
+	// Set global variables
+	ScriptVars.setGlobalVar("tokenAccessor", tokenAccessor);
+	ScriptVars.setGlobalVar("refreshUrl", paramsValues.get("refreshUrl"));
+	ScriptVars.setGlobalVar("refreshTokenAccessor", refreshTokenAccessor);
+
 	const loginUri = new URI(loginUrl, false);
 	const loginMsg = helper.prepareMessage();
 
 	// Prepare login request body
 	const requestBody = JSON.stringify({
-		username: username,
-		password: password,
+		[usernameAccessor]: username,
+		[passwordAccessor]: password,
 	});
 
 	loginMsg.setRequestHeader(
@@ -83,11 +91,11 @@ function authenticate(helper, paramsValues, credentials) {
 		throw new Error("❌ Authentication response missing access token.");
 	}
 
-	ScriptVars.setGlobalVar("access_token", accessToken);
+	ScriptVars.setGlobalVar("accessToken", accessToken);
 	print("🔑 Access token obtained successfully.\n");
 
 	if (refreshToken) {
-		ScriptVars.setGlobalVar("refresh_token", refreshToken);
+		ScriptVars.setGlobalVar("refreshToken", refreshToken);
 		print("♻️ Refresh token received and stored.\n");
 	} else {
 		print("⚠️ No refresh token received from authentication response.\n");
@@ -99,12 +107,18 @@ function authenticate(helper, paramsValues, credentials) {
 
 // Required parameters
 function getRequiredParamsNames() {
-	return ["loginUrl", "tokenAccessor", "refreshUrl"];
+	return ["loginUrl"];
 }
 
 // Optional parameters
 function getOptionalParamsNames() {
-	return ["refreshTokenAccessor"];
+	return [
+		"tokenAccessor",
+		"refreshUrl",
+		"refreshTokenAccessor",
+		"usernameAccessor",
+		"passwordAccessor",
+	];
 }
 
 // Credential parameters
